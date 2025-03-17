@@ -4,33 +4,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Music Recognition App</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Key Dance - Music Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #stopButton {
+            background-color: #f44336;
+        }
+
+        #stopButton:hover {
+            background-color: #d32f2f;
+        }
+
+        #status {
+            text-align: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .recording {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .processing {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .result-item {
+            margin-bottom: 10px;
+        }
+
+        .result-label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .confidence-bar {
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        #staffNotation {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+
+        #notationContent {
+            font-family: monospace;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+    </style>
+    <script src="dist/app.js" defer></script>
 </head>
 
 <body>
     <div class="container">
-        <h1>Music Recognition App</h1>
+        <h1>Key Dance</h1>
+        <p>Record audio to identify music playing around you. Click "Record Audio" to start recording, then "Stop
+            Recording" when you've captured enough of the song (at least 5-10 seconds).</p>
 
         <div class="controls">
             <button id="recordButton">Record Audio</button>
-            <div id="recordingStatus"></div>
+            <button id="stopButton" disabled>Stop Recording</button>
         </div>
 
-        <div id="results" class="hidden">
-            <h2>Recognition Results</h2>
-            <div id="songInfo">
-                <p><strong>Title:</strong> <span id="songTitle"></span></p>
-                <p><strong>Artist:</strong> <span id="songArtist"></span></p>
-                <p><strong>Confidence:</strong> <span id="confidence"></span>%</p>
-            </div>
+        <div id="status">Ready to record</div>
 
-            <h2>Piano Staff</h2>
-            <div id="staffNotation"></div>
+        <div id="result">
+            <h2>Recognition Result</h2>
+            <div class="result-item">
+                <span class="result-label">Title:</span>
+                <span id="title"></span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Artist:</span>
+                <span id="artist"></span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Confidence:</span>
+                <span id="confidence"></span>%
+                <div class="confidence-bar" id="confidenceBar"></div>
+            </div>
+        </div>
+
+        <div id="staffNotation" style="display: none;">
+            <h3>Staff Notation</h3>
+            <pre id="notationContent"></pre>
         </div>
     </div>
-
-    <script src="dist/app.js"></script>
 </body>
 
 </html>

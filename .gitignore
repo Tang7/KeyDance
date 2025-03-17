@@ -5,3 +5,4 @@ Cargo.lock
 node_modules
 *.pem
 .vscode
+.env

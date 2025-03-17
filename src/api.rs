@@ -1,41 +1,40 @@
-use crate::recognition::RecognitionService;
+use crate::acrcloud_api::AcrCloudClient;
+use crate::models::AudioData;
+use crate::staff_notation::StaffNotationGenerator;
 use actix_web::{get, post, web, HttpResponse, Responder};
-use base64::engine::Engine;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct AudioData {
-    data: String, // Base64 encoded audio data
-}
+use log::{error, info};
 
 #[post("/api/recognize")]
-pub async fn recognize_audio(
-    audio_data: web::Json<AudioData>,
-    recognition_service: web::Data<RecognitionService>,
-) -> impl Responder {
-    // Decode the base64 audio data
-    let decoded: Vec<u8> = match base64::engine::general_purpose::STANDARD.decode(&audio_data.data)
-    {
-        Ok(data) => data,
-        Err(_) => return HttpResponse::BadRequest().body("Invalid audio data"),
+pub async fn recognize_audio(audio_data: web::Json<AudioData>) -> impl Responder {
+    info!("Received audio recognition request");
+
+    let client = match AcrCloudClient::from_env() {
+        Ok(client) => client,
+        Err(e) => {
+            error!("Failed to initialize ACRCloud client: {}", e);
+            return HttpResponse::InternalServerError().body(e);
+        }
     };
 
-    // Process the audio data with the recognition service
-    match recognition_service.recognize_audio(&decoded).await {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(e) => HttpResponse::InternalServerError().body(e),
-    }
+    let recognition_result = client.recognize_base64_audio(&audio_data.data).await;
+    client.create_recognition_response(recognition_result)
 }
 
 #[get("/api/staff/{song_id}")]
-pub async fn get_staff_notation(
-    path: web::Path<String>,
-    recognition_service: web::Data<RecognitionService>,
-) -> impl Responder {
+pub async fn get_staff_notation(path: web::Path<String>) -> impl Responder {
     let song_id = path.into_inner();
+    info!("Received staff notation request for song ID: {}", song_id);
 
-    match recognition_service.get_staff_notation(&song_id).await {
-        Ok(notation) => HttpResponse::Ok().json(notation),
-        Err(e) => HttpResponse::InternalServerError().body(e),
-    }
+    let generator = StaffNotationGenerator::new();
+    info!("Created StaffNotationGenerator");
+
+    let notation = generator.generate_for_song(&song_id);
+    info!("Generated staff notation: {:?}", notation);
+
+    // Add CORS headers to ensure the response can be processed by the browser
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .append_header(("Access-Control-Allow-Methods", "GET, POST, OPTIONS"))
+        .append_header(("Access-Control-Allow-Headers", "Content-Type"))
+        .json(notation)
 }

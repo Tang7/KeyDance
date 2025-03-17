@@ -1,138 +1,191 @@
-interface RecognitionResult {
-  song_id: string;
-  title: string;
-  artist: string;
-  confidence: number;
+// Define interfaces for API responses
+interface MusicRecognitionResult {
+    title: string;
+    artist: string;
+    confidence: number;
+    song_id: string;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+interface StaffNotation {
+    title: string;
+    notation: string;
+}
+
+// DOM elements
+let mediaRecorder: MediaRecorder | null = null;
+let audioChunks: Blob[] = [];
+
+document.addEventListener('DOMContentLoaded', function() {
     const recordButton = document.getElementById('recordButton') as HTMLButtonElement;
-    const recordingStatus = document.getElementById('recordingStatus') as HTMLDivElement;
-    const resultsDiv = document.getElementById('results') as HTMLDivElement;
-    const songTitle = document.getElementById('songTitle') as HTMLSpanElement;
-    const songArtist = document.getElementById('songArtist') as HTMLSpanElement;
-    const confidence = document.getElementById('confidence') as HTMLSpanElement;
-    const staffNotation = document.getElementById('staffNotation') as HTMLDivElement;
+    const stopButton = document.getElementById('stopButton') as HTMLButtonElement;
+    const statusDiv = document.getElementById('status') as HTMLDivElement;
+    const resultDiv = document.getElementById('result') as HTMLDivElement;
+    const titleSpan = document.getElementById('title') as HTMLSpanElement;
+    const artistSpan = document.getElementById('artist') as HTMLSpanElement;
+    const confidenceSpan = document.getElementById('confidence') as HTMLSpanElement;
+    const confidenceBar = document.getElementById('confidenceBar') as HTMLDivElement;
     
-    let mediaRecorder: MediaRecorder | null = null;
-    let audioChunks: Blob[] = [];
-    let isRecording = false;
+    // Get the staff notation div
+    const staffNotationDiv = document.getElementById('staffNotation');
+    if (!staffNotationDiv) {
+        console.error('Staff notation div not found in the HTML');
+    }
     
     // Request microphone access
-    async function setupAudio(): Promise<boolean> {
+    async function setupRecording(): Promise<boolean> {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
-            
-            mediaRecorder.addEventListener('dataavailable', (event: BlobEvent) => {
+
+            mediaRecorder.ondataavailable = (event) => {
                 audioChunks.push(event.data);
-            });
-            
-            mediaRecorder.addEventListener('stop', async () => {
+            };
+
+            mediaRecorder.onstop = async () => {
+                statusDiv.textContent = 'Processing audio...';
+                statusDiv.className = 'processing';
+
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                await recognizeSong(audioBlob);
-                audioChunks = [];
-            });
-            
+                const reader = new FileReader();
+
+                reader.onloadend = async () => {
+                    const base64Audio = (reader.result as string).split(',')[1];
+                    await recognizeAudio(base64Audio);
+                };
+
+                reader.readAsDataURL(audioBlob);
+            };
+
             return true;
-        } catch (error) {
-            console.error('Error accessing microphone:', error);
-            recordingStatus.textContent = 'Error: Microphone access denied';
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            statusDiv.textContent = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+            statusDiv.className = 'error';
             return false;
         }
     }
-    
-    // Handle record button click
-    recordButton.addEventListener('click', async () => {
-        if (isRecording) {
-            // Stop recording
-            mediaRecorder?.stop();
-            recordButton.textContent = 'Record Audio';
-            recordButton.classList.remove('recording');
-            recordingStatus.textContent = 'Processing audio...';
-            isRecording = false;
-        } else {
-            // Start recording
-            if (!mediaRecorder && !(await setupAudio())) {
-                return;
-            }
-            
-            resultsDiv.classList.add('hidden');
-            audioChunks = [];
-            mediaRecorder?.start();
-            recordButton.textContent = 'Stop Recording';
-            recordButton.classList.add('recording');
-            recordingStatus.textContent = 'Recording...';
-            isRecording = true;
-        }
-    });
-    
+
     // Send audio to server for recognition
-    async function recognizeSong(audioBlob: Blob): Promise<void> {
+    async function recognizeAudio(base64Audio: string): Promise<void> {
         try {
-            // Convert blob to base64
-            const base64Audio = await blobToBase64(audioBlob);
-            
-            // Send to server
             const response = await fetch('/api/recognize', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ data: base64Audio }),
+                body: JSON.stringify({ data: base64Audio })
             });
             
             if (!response.ok) {
-                throw new Error('Recognition failed');
+                const errorText = await response.text();
+                throw new Error(`Server returned ${response.status}: ${errorText}`);
             }
             
-            const result: RecognitionResult = await response.json();
-            displayResults(result);
-        } catch (error) {
-            console.error('Error recognizing song:', error);
-            recordingStatus.textContent = 'Error: Recognition failed';
+            const result: MusicRecognitionResult = await response.json();
+            
+            // Display the result
+            titleSpan.textContent = result.title;
+            artistSpan.textContent = result.artist;
+            
+            const confidencePercent = (result.confidence * 100).toFixed(2);
+            confidenceSpan.textContent = confidencePercent;
+            confidenceBar.style.width = `${result.confidence * 100}%`;
+            
+            resultDiv.style.display = 'block';
+            
+            statusDiv.textContent = 'Recognition successful!';
+            statusDiv.className = 'success';
+
+
+            // Fetch staff notation for the song, TODO: improve this once we have a proper API
+            if (result.song_id) {
+                await fetchStaffNotation(result.song_id);
+            } else {
+                const generatedId = `${result.title.toLowerCase().replace(/ /g, "-")}-${result.artist.toLowerCase().replace(/ /g, "-")}`;
+                await fetchStaffNotation(generatedId);
+            }
+        } catch (err) {
+            console.error('Recognition error:', err);
+            statusDiv.textContent = `Recognition failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
+            statusDiv.className = 'error';
+            resultDiv.style.display = 'none';
+            if (staffNotationDiv) {
+                staffNotationDiv.style.display = 'none';
+            }
         }
     }
     
-    // Helper function to convert Blob to base64
-    function blobToBase64(blob: Blob): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = () => {
-                const base64data = reader.result as string;
-                // Remove the "data:audio/wav;base64," part
-                resolve(base64data.split(',')[1]);
-            };
-            reader.onerror = reject;
-        });
-    }
-    
-    // Display recognition results
-    async function displayResults(result: RecognitionResult): Promise<void> {
-        songTitle.textContent = result.title;
-        songArtist.textContent = result.artist;
-        confidence.textContent = Math.round(result.confidence * 100).toString();
-        
-        // Fetch staff notation
+    // Fetch staff notation for a song
+    async function fetchStaffNotation(songId: string): Promise<void> {
         try {
-            const response = await fetch(`/api/staff/${result.song_id}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch staff notation');
+            console.log(`Fetching staff notation for song ID: ${songId}`);
+            
+            // Get the staff notation div
+            const staffNotationDiv = document.getElementById('staffNotation');
+            if (!staffNotationDiv) {
+                console.error('Staff notation div not found');
+                return;
             }
             
-            const notationData = await response.json();
+            // Make the API call
+            const response = await fetch(`/api/staff/${songId}`);
             
-            // In a real app, you would render the staff notation here
-            // This could use a library like VexFlow or integrate with Magenta's visualization
-            staffNotation.textContent = "Staff notation would be rendered here";
+            if (!response.ok) {
+                throw new Error(`Failed to fetch staff notation: ${response.status}`);
+            }
             
-            // Show results
-            resultsDiv.classList.remove('hidden');
-            recordingStatus.textContent = '';
-        } catch (error) {
-            console.error('Error fetching staff notation:', error);
-            recordingStatus.textContent = 'Error: Could not load staff notation';
+            const notation: StaffNotation = await response.json();
+            console.log('Received staff notation:', notation);
+            
+            // Display the notation
+            const notationContent = document.getElementById('notationContent');
+            if (notationContent) {
+                console.log('Setting notation content to:', notation.notation);
+                notationContent.textContent = notation.notation;
+                
+                // Make sure the div is visible
+                staffNotationDiv.style.display = 'block';
+            } else {
+                console.error('notationContent element not found');
+            }
+        } catch (err) {
+            console.error('Error fetching staff notation:', err);
+            const staffNotationDiv = document.getElementById('staffNotation');
+            if (staffNotationDiv) {
+                staffNotationDiv.style.display = 'none';
+            }
         }
     }
+
+    // Handle record button click
+    recordButton.addEventListener('click', async function() {
+        if (!mediaRecorder) {
+            if (!(await setupRecording())) {
+                return;
+            }
+        }
+        
+        audioChunks = [];
+        if (mediaRecorder) {
+            mediaRecorder.start();
+        }
+        
+        recordButton.disabled = true;
+        stopButton.disabled = false;
+        statusDiv.textContent = 'Recording... (capture at least 5-10 seconds of music)';
+        statusDiv.className = 'recording';
+        resultDiv.style.display = 'none';
+        if (staffNotationDiv) {
+            staffNotationDiv.style.display = 'none';
+        }
+    });
+    
+    // Handle stop button click
+    stopButton.addEventListener('click', function() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+        }
+    });
 }); 

@@ -1,16 +1,20 @@
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer};
+use env_logger::Env;
+use log::info;
 
+mod acrcloud_api;
 mod api;
-mod audio;
-mod recognition;
+mod models;
 mod staff_notation;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let recognition_service = recognition::RecognitionService::new();
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
 
-    println!("Starting music recognition server on http://127.0.0.1:8080");
+    info!("Starting Key Dance application");
+
+    info!("Starting music recognition server on http://127.0.0.1:8080");
 
     let server = HttpServer::new(move || {
         let cors = Cors::default()
@@ -18,16 +22,16 @@ async fn main() -> std::io::Result<()> {
             .allow_any_method()
             .allow_any_header();
 
+        info!("Configuring application routes");
         App::new()
             .wrap(cors)
-            .app_data(web::Data::new(recognition_service.clone()))
             .service(api::recognize_audio)
             .service(api::get_staff_notation)
             .service(actix_files::Files::new("/", "./static").index_file("index.html"))
     })
     .bind("127.0.0.1:8080")?;
 
-    println!("Server configured, starting...");
+    info!("Server configured, starting...");
 
     server.run().await
 }
