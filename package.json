@@ -1,0 +1,19 @@
+{
+  "name": "keydance",
+  "version": "1.0.0",
+  "description": "A web application that can automatically detect songs and show their piano staff notation.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/dom-mediacapture-record": "^1.0.21",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "0g": "^0.4.2"
+  }
+}

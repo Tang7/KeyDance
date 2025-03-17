@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Recognition App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Music Recognition App</h1>
+
+        <div class="controls">
+            <button id="recordButton">Record Audio</button>
+            <div id="recordingStatus"></div>
+        </div>
+
+        <div id="results" class="hidden">
+            <h2>Recognition Results</h2>
+            <div id="songInfo">
+                <p><strong>Title:</strong> <span id="songTitle"></span></p>
+                <p><strong>Artist:</strong> <span id="songArtist"></span></p>
+                <p><strong>Confidence:</strong> <span id="confidence"></span>%</p>
+            </div>
+
+            <h2>Piano Staff</h2>
+            <div id="staffNotation"></div>
+        </div>
+    </div>
+
+    <script src="dist/app.js"></script>
+</body>
+
+</html>
